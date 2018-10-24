@@ -1,0 +1,69 @@
+---
+title: "Promotion Strategy"
+author: "Owen Ouyang"
+date: "`r format(Sys.Date())`"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(readr)
+library(tidyverse)
+library(lubridate)
+library(plotly)
+library(knitr)
+library(DT)
+library(skimr)
+
+trips_df <- read_csv('input/retail promo data.csv')
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Brief Data Table
+
+```{r}
+
+station_trips_df <- trips_df
+
+datatable(
+  station_trips_df, rownames = FALSE,
+  extensions = 'Buttons', options = list(
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
+  )
+)
+
+
+```
+
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Statistic Overview{data-height=500}
+```{r}
+
+station_trips_df %>% skim() %>% kable()
+
+
+```
+
+### % Short Trips
+
+
+```{r}
+library(corrplot)
+
+
+
+
+
+```
+
+
+
