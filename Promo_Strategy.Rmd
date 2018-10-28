@@ -17,9 +17,65 @@ library(plotly)
 library(knitr)
 library(DT)
 library(skimr)
+library(GGally)
+
+energyData <- read_csv("input/PUB_PriceHOEPPredispOR.csv")%>% 
+  mutate(Date=mdy(Date))
+colnames(energyData) <- colnames(energyData) %>% str_replace(pattern = " ", replacement = "_")
 
 trips_df <- read_csv('input/retail promo data.csv')
 ```
+
+
+Energy Market Dataset
+=====================================
+
+
+Column {data-width=550}
+-----------------------------------------------------------------------
+
+### Interactive Data Table
+
+```{r}
+
+datatable(
+  energyData, rownames = FALSE,
+  extensions = 'Buttons', options = list(
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
+  )
+)
+
+
+```
+
+
+Column {data-width=450}
+-----------------------------------------------------------------------
+
+### Statistic Overview{data-height=200}
+```{r}
+summary(energyData[,3:5])
+
+```
+
+### Statistic 
+
+
+```{r}
+energyData %>% 
+  mutate( Month=months(Date), Total_Cost=HOEP*Ontario_Demand, MonthIndex=match(Month, month.name)) %>%
+  group_by(Month, MonthIndex) %>%
+  summarise(Monthly_Max_Demand=max(Ontario_Demand), Monthly_Total_Usage=sum(Ontario_Demand), Monthly_Total_Cost=sum(Total_Cost) ) %>%
+  arrange(MonthIndex) %>% 
+  select(-MonthIndex) %>% 
+  kable()
+
+```
+
+
+Details
+=====================================
 
 Column {data-width=650}
 -----------------------------------------------------------------------
@@ -64,6 +120,3 @@ library(corrplot)
 
 
 ```
-
-
-
