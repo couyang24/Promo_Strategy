@@ -1,5 +1,5 @@
 ---
-title: "Promotion Strategy"
+title: "Data Aggregation Introduction"
 author: "Owen Ouyang"
 date: "`r format(Sys.Date())`"
 output: 
@@ -9,25 +9,37 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+library(data.table)
+library(tidyverse)
+library(rebus)
+library(ggrepel)
+library(ggthemes)
+library(plotly)
+library(scales)
+library(DT)
+library(highcharter)
+library(skimr)
+library(leaflet)
+library(leaflet.extras)
+library(ggmap)
+library(htmltools)
 library(flexdashboard)
 library(readr)
-library(tidyverse)
 library(lubridate)
-library(plotly)
 library(knitr)
-library(DT)
 library(skimr)
 library(GGally)
+library(viridis)
 
 energyData <- read_csv("input/PUB_PriceHOEPPredispOR.csv")%>% 
   mutate(Date=mdy(Date))
 colnames(energyData) <- colnames(energyData) %>% str_replace(pattern = " ", replacement = "_")
 
-trips_df <- read_csv('input/retail promo data.csv')
+retail_df <- read_csv('input/retail promo data.csv')
 ```
 
 
-Energy Market Dataset
+Energy Market Dataset Overview
 =====================================
 
 
@@ -59,35 +71,146 @@ summary(energyData[,3:5])
 
 ```
 
-### Statistic 
+### Monthly Stats
 
 
 ```{r}
-energyData %>% 
+energyMonthlyData <- energyData %>% 
   mutate( Month=months(Date), Total_Cost=HOEP*Ontario_Demand, MonthIndex=match(Month, month.name)) %>%
   group_by(Month, MonthIndex) %>%
-  summarise(Monthly_Max_Demand=max(Ontario_Demand), Monthly_Total_Usage=sum(Ontario_Demand), Monthly_Total_Cost=sum(Total_Cost) ) %>%
+  summarise(Max_Demand=max(Ontario_Demand), Usage=sum(Ontario_Demand), Cost=sum(Total_Cost) ) %>%
   arrange(MonthIndex) %>% 
-  select(-MonthIndex) %>% 
+  select(-MonthIndex) 
+energyMonthlyData %>% 
   kable()
 
 ```
 
 
-Details
+Energy Market Data Visualization
+=====================================
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Interactive Drill Down
+
+```{r}
+energyMonthlyDataResult <- energyMonthlyData %>% gather(key = "Key", value = "Value", -Month)
+
+
+
+df1 <- energyMonthlyDataResult %>% 
+  group_by(name = Key, drilldown = Key) %>% 
+  summarise(y = n()) %>% 
+  arrange(desc(y))
+
+df2 <- energyMonthlyDataResult %>% 
+  group_by(Key, Month) %>% 
+  mutate(y = Value, colorByPoint = 1) %>% 
+  # arrange(desc(y)) %>%
+  group_by(name = Key, id = Key
+           # , colorByPoint
+  ) %>% 
+  do(data = list_parse(
+    mutate(., name = Month, drilldown = tolower(paste(Key, Month, sep=": "))) %>% mutate(month_index=match(Month, month.name)) %>%  
+      group_by(name, drilldown, month_index) %>% 
+      summarise(y=Value) %>% 
+      arrange(month_index) %>%
+      select(name, y, drilldown))) 
+    # %>% arrange(desc(y)))) 
+
+a <- highchart() %>% 
+  hc_chart(type = 'pie') %>% 
+  hc_xAxis(type = "category") %>% 
+  hc_add_series(name = 'number of months', data = df1
+                # , colorByPoint = 1
+  ) %>% 
+  hc_drilldown(
+    allowPointDrilldown = TRUE,
+    series =list_parse(df2)
+  ) %>%
+  hc_legend(enabled = F) %>% 
+  hc_title(text = "Key Value Pie Chart") %>% 
+  hc_add_theme(hc_theme_google())
+
+
+b <- highchart() %>% 
+  hc_chart(type = 'bar') %>% 
+  hc_xAxis(type = "category") %>% 
+  hc_add_series(name = 'number of months', data = df1, colorByPoint = 1) %>% 
+  hc_drilldown(
+    allowPointDrilldown = TRUE,
+    series =list_parse(df2)
+  ) %>%
+  hc_legend(enabled = F) %>% 
+  hc_title(text = "Key Value Bar Chart") %>% 
+  hc_add_theme(hc_theme_google())
+rm(df1, df2)
+
+
+
+lst <- list(
+  a,
+  b
+)
+
+hw_grid(lst, rowheight = 400)
+rm(a, b, lst)
+
+
+
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### 3D Visulization{data-height=700}
+```{r}
+
+energyData %>% 
+  plot_ly(x=~HOEP,y=~Market_Demand,z= ~Ontario_Demand, hoverinfo = 'text', colors = viridis(15),
+           text = ~paste(
+                         '<br>HOEP:', HOEP,
+                         '<br>Market_Demand:', Market_Demand,
+                         '<br>Ontario_Demand:', Ontario_Demand
+                        )) %>% 
+  add_markers(opacity = 0.8) %>%
+  layout(title = "Key Variables",
+         annotations=list(yref='paper',xref="paper",y=1.05,x=1.1, text="Comparison",showarrow=F),
+         scene = list(xaxis = list(title = 'HOEP'),
+                      yaxis = list(title = 'Market Demand'),
+                      zaxis = list(title = 'Ontario Demand')))
+```
+
+<!-- ### GGPairs -->
+
+
+<!-- ```{r} -->
+<!-- energyData %>% gather(key = "Key", value = "Value",-c(Date,Hour,HOEP)) %>%  -->
+<!--   ggpairs(aes(col=Key,alpha=.3)) -->
+
+
+
+
+
+<!-- ``` -->
+
+
+Promotion Strategy Case Study
 =====================================
 
 Column {data-width=650}
 -----------------------------------------------------------------------
 
-### Brief Data Table
+### Interactive Data Table
 
 ```{r}
 
-station_trips_df <- trips_df
 
 datatable(
-  station_trips_df, rownames = FALSE,
+  retail_df, rownames = FALSE,
   extensions = 'Buttons', options = list(
     dom = 'Bfrtip',
     buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
@@ -104,7 +227,7 @@ Column {data-width=350}
 ### Statistic Overview{data-height=500}
 ```{r}
 
-station_trips_df %>% skim() %>% kable()
+retail_df %>% skim() %>% kable()
 
 
 ```
